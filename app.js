@@ -99,7 +99,7 @@ async function loadPhotosFromFirestore() {
 
     if (snapshot.empty) {
       seedDefaultPhotos();
-      setTimeout(() => loadPhotosFromFirestore(), 3000);
+      setTimeout(() => loadPhotosFromFirestore(), 1500);
       return;
     }
 
@@ -114,11 +114,7 @@ async function loadPhotosFromFirestore() {
     updateTags(activeFilter);
     renderCards(activeFilter);
   } catch (error) {
-    console.error('❌ Firestore 로딩 에러:', error);
-    // Fallback to defaults
-    photos = [...DEFAULT_PHOTOS];
-    updateTags(activeFilter);
-    renderCards(activeFilter);
+    // Silently keep showing defaults — already rendered
   }
 }
 
@@ -515,18 +511,15 @@ viewGridBtn.addEventListener('click', () => setViewMode('grid'));
 // Init
 // ===========================
 document.addEventListener('DOMContentLoaded', () => {
-  // Show loading state
-  gallery.innerHTML = `
-    <div class="gallery__empty">
-      <p class="gallery__empty-icon">⏳</p>
-      <p class="gallery__empty-text">사진을 불러오는 중...</p>
-    </div>
-  `;
+  // 1. Render default photos IMMEDIATELY (no waiting)
+  photos = [...DEFAULT_PHOTOS];
+  updateTags(activeFilter);
+  renderCards(activeFilter);
 
-  // Load data from Firestore
-  loadPhotosFromFirestore();
-
-  // Restore view mode
+  // 2. Restore view mode
   const savedMode = localStorage.getItem(VIEW_MODE_KEY) || 'list';
   setViewMode(savedMode);
+
+  // 3. Load Firestore data in background and replace when ready
+  loadPhotosFromFirestore();
 });
