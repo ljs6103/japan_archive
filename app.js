@@ -5,27 +5,24 @@ const DEFAULT_PHOTOS = [
   {
     id: 'default-1',
     date: '2026-02-05',
-    location: '도쿄',
-    locationDetail: '신주쿠 골든가이',
-    image: 'images/tokyo-alley.png',
+    location: '도쿄 신주쿠 골든가이',
+    imageUrl: 'images/tokyo-alley.png',
     blogUrl: '',
     isDefault: true
   },
   {
     id: 'default-2',
     date: '2026-02-12',
-    location: '교토',
-    locationDetail: '히가시야마 킷사텐',
-    image: 'images/japan-cafe.png',
+    location: '교토 히가시야마 킷사텐',
+    imageUrl: 'images/japan-cafe.png',
     blogUrl: '',
     isDefault: true
   },
   {
     id: 'default-3',
     date: '2026-02-20',
-    location: '후지산',
-    locationDetail: '가와구치코 호수',
-    image: 'images/fuji-lake.png',
+    location: '가와구치코 후지산',
+    imageUrl: 'images/fuji-lake.png',
     blogUrl: '',
     isDefault: true
   }
@@ -78,14 +75,13 @@ function seedDefaultPhotos() {
   if (hasSeeded) return;
   hasSeeded = true;
   DEFAULT_PHOTOS.forEach(photo => {
-    db.collection('photos').add({
+    db.collection('images').add({
       date: photo.date,
       location: photo.location,
-      locationDetail: photo.locationDetail,
-      image: photo.image,
+      imageUrl: photo.imageUrl,
       blogUrl: photo.blogUrl,
       isDefault: true,
-      createdAt: new Date().toISOString()
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
     }).catch(e => console.error('시딩 실패:', e));
   });
 }
@@ -95,7 +91,7 @@ function seedDefaultPhotos() {
 // ===========================
 async function loadPhotosFromFirestore() {
   try {
-    const snapshot = await db.collection('photos').get();
+    const snapshot = await db.collection('images').orderBy('createdAt', 'desc').get();
 
     if (snapshot.empty) {
       seedDefaultPhotos();
@@ -103,18 +99,20 @@ async function loadPhotosFromFirestore() {
       return;
     }
 
-    photos = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
-
-    // Sort by createdAt descending
-    photos.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    photos = snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        // Convert Firestore Timestamp to ISO string if needed for existing sorting or display
+        createdAt: data.createdAt ? data.createdAt.toDate().toISOString() : new Date().toISOString()
+      };
+    });
 
     updateTags(activeFilter);
     renderCards(activeFilter);
   } catch (error) {
-    // Silently keep showing defaults — already rendered
+    console.error('Firestore 로드 실패:', error);
   }
 }
 
@@ -136,9 +134,9 @@ async function uploadImageToStorage(file) {
 // Firebase: Add Photo
 // ===========================
 async function addPhotoToFirestore(photoData) {
-  return await db.collection('photos').add({
+  return await db.collection('images').add({
     ...photoData,
-    createdAt: new Date().toISOString()
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
   });
 }
 
@@ -147,10 +145,10 @@ async function addPhotoToFirestore(photoData) {
 // ===========================
 async function deletePhotoFromFirebase(photoId, storagePath) {
   try {
-    // Delete Firestore document
-    await db.collection('photos').doc(photoId).delete();
+    // Delete Firestore document from 'images' collection
+    await db.collection('images').doc(photoId).delete();
 
-    // Delete from Storage (only for uploaded images, not defaults)
+    // Delete from Storage (uploaded images only)
     if (storagePath && !storagePath.startsWith('images/')) {
       try {
         await storage.ref(storagePath).delete();
@@ -208,9 +206,6 @@ function renderCards(filter = 'all') {
 
     const displayDate = formatDate(photo.date);
     const jpDate = formatDateJP(photo.date);
-    const locationFull = photo.locationDetail
-      ? `${photo.location} · ${photo.locationDetail}`
-      : photo.location;
 
     const blogBtnHtml = photo.blogUrl
       ? `<a class="card__back-blog" href="${photo.blogUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">📖 블로그 일기 보기</a>`
@@ -220,9 +215,9 @@ function renderCards(filter = 'all') {
       <div class="card__inner">
         <div class="card__front">
           <div class="card__img-wrapper">
-            <img class="card__img" src="${photo.image}" alt="${displayDate} ${photo.location}" loading="lazy">
+            <img class="card__img" src="${photo.imageUrl}" alt="${displayDate} ${photo.location}" loading="lazy">
             <div class="card__overlay">
-              <span class="card__overlay-location">📍 ${locationFull}</span>
+              <span class="card__overlay-location">📍 ${photo.location}</span>
             </div>
             <span class="card__flip-hint">↻ 뒤집기</span>
           </div>
@@ -233,7 +228,7 @@ function renderCards(filter = 'all') {
               <span class="card__back-stamp-text">${photo.location}</span>
             </div>
             <p class="card__back-date">${jpDate}</p>
-            <p class="card__back-location">📍 ${locationFull}</p>
+            <p class="card__back-location">📍 ${photo.location}</p>
             <div class="card__back-divider"></div>
             ${blogBtnHtml}
             <button class="card__back-delete" data-id="${photo.id}" data-path="${photo.storagePath || ''}" aria-label="삭제" title="삭제">🗑</button>
@@ -398,7 +393,7 @@ uploadForm.addEventListener('submit', async (e) => {
 
   const date = document.getElementById('input-date').value;
   const location = document.getElementById('input-location').value;
-  const locationDetail = document.getElementById('input-location-detail').value.trim();
+  // locationDetail is no longer used in the schema
   const blogUrl = document.getElementById('input-blog').value.trim();
 
   try {
@@ -408,8 +403,7 @@ uploadForm.addEventListener('submit', async (e) => {
       await addPhotoToFirestore({
         date,
         location,
-        locationDetail,
-        image: downloadURL,
+        imageUrl: downloadURL,
         storagePath: filePath,
         blogUrl,
         isDefault: false
