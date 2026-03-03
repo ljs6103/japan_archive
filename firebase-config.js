@@ -14,6 +14,5 @@ const firebaseConfig = {
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 
-// Global references
+// Global references (Firestore only — images are on Cloudinary)
 const db = firebase.firestore();
-const storage = firebase.storage();

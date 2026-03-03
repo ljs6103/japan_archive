@@ -1,4 +1,10 @@
 // ===========================
+// Cloudinary Configuration
+// ===========================
+const CLOUDINARY_CLOUD_NAME = 'dvvyxvznt';  // Cloudinary cloud name
+const CLOUDINARY_UPLOAD_PRESET = 'japan-archive';
+
+// ===========================
 // Default Sample Data
 // ===========================
 const DEFAULT_PHOTOS = [
@@ -91,11 +97,12 @@ function seedDefaultPhotos() {
 // ===========================
 async function loadPhotosFromFirestore() {
   try {
-    const snapshot = await db.collection('images').orderBy('createdAt', 'desc').get();
+    // orderBy 제거: createdAt이 아직 서버에 기록되지 않은 문서도 안전하게 가져오기
+    const snapshot = await db.collection('images').get();
 
     if (snapshot.empty) {
       seedDefaultPhotos();
-      setTimeout(() => loadPhotosFromFirestore(), 1500);
+      setTimeout(() => loadPhotosFromFirestore(), 2000);
       return;
     }
 
@@ -104,10 +111,15 @@ async function loadPhotosFromFirestore() {
       return {
         id: doc.id,
         ...data,
-        // Convert Firestore Timestamp to ISO string if needed for existing sorting or display
         createdAt: data.createdAt ? data.createdAt.toDate().toISOString() : new Date().toISOString()
       };
     });
+
+    // 불완전한 문서 필터링 (location 또는 imageUrl이 없는 문서 제외)
+    photos = photos.filter(p => p.location && p.imageUrl);
+
+    // 클라이언트 사이드 정렬 (최신순)
+    photos.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
 
     updateTags(activeFilter);
     renderCards(activeFilter);
@@ -117,17 +129,84 @@ async function loadPhotosFromFirestore() {
 }
 
 // ===========================
-// Firebase: Upload Image to Storage
+// Image Optimization (client-side)
 // ===========================
-async function uploadImageToStorage(file) {
-  const timestamp = Date.now();
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-  const filePath = `photos/${timestamp}_${safeName}`;
-  const storageRef = storage.ref(filePath);
+const UPLOAD_WIDTH = 1080;
+const UPLOAD_HEIGHT = 1920; // 9:16 ratio
 
-  await storageRef.put(file);
-  const downloadURL = await storageRef.getDownloadURL();
-  return { downloadURL, filePath };
+function resizeImageForUpload(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = UPLOAD_WIDTH;
+      canvas.height = UPLOAD_HEIGHT;
+      const ctx = canvas.getContext('2d');
+
+      // Center-crop to 9:16 ratio, then draw at 1080x1920
+      const targetRatio = UPLOAD_WIDTH / UPLOAD_HEIGHT; // 0.5625
+      const srcRatio = img.width / img.height;
+
+      let sx, sy, sw, sh;
+      if (srcRatio > targetRatio) {
+        // Source is wider → crop sides
+        sh = img.height;
+        sw = img.height * targetRatio;
+        sx = (img.width - sw) / 2;
+        sy = 0;
+      } else {
+        // Source is taller → crop top/bottom
+        sw = img.width;
+        sh = img.width / targetRatio;
+        sx = 0;
+        sy = (img.height - sh) / 2;
+      }
+
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, UPLOAD_WIDTH, UPLOAD_HEIGHT);
+
+      canvas.toBlob((blob) => {
+        if (blob) {
+          resolve(blob);
+        } else {
+          reject(new Error('이미지 변환 실패'));
+        }
+      }, 'image/jpeg', 0.85);
+    };
+    img.onerror = () => reject(new Error('이미지 로드 실패'));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+// ===========================
+// Cloudinary: Upload Image (Unsigned)
+// ===========================
+async function uploadImageToCloudinary(file) {
+  // 1. Resize to 1080x1920 (9:16)
+  const optimizedBlob = await resizeImageForUpload(file);
+
+  const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
+
+  // 2. Upload optimized image
+  const formData = new FormData();
+  formData.append('file', optimizedBlob, 'photo.jpg');
+  formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+
+  console.log('📤 Cloudinary 업로드 시작...');
+
+  const response = await fetch(url, {
+    method: 'POST',
+    body: formData
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    console.error('❌ Cloudinary 에러:', errText);
+    throw new Error(`Cloudinary 업로드 실패: ${response.status}`);
+  }
+
+  const data = await response.json();
+  console.log('✅ Cloudinary 업로드 완료:', data.secure_url);
+  return data.secure_url;
 }
 
 // ===========================
@@ -143,19 +222,9 @@ async function addPhotoToFirestore(photoData) {
 // ===========================
 // Firebase: Delete Photo
 // ===========================
-async function deletePhotoFromFirebase(photoId, storagePath) {
+async function deletePhotoFromFirebase(photoId) {
   try {
-    // Delete Firestore document from 'images' collection
     await db.collection('images').doc(photoId).delete();
-
-    // Delete from Storage (uploaded images only)
-    if (storagePath && !storagePath.startsWith('images/')) {
-      try {
-        await storage.ref(storagePath).delete();
-      } catch (storageErr) {
-        console.warn('Storage 파일 삭제 실패:', storageErr);
-      }
-    }
   } catch (e) {
     console.error('삭제 실패:', e);
     alert('삭제에 실패했습니다. 다시 시도해 주세요.');
@@ -166,7 +235,7 @@ async function deletePhotoFromFirebase(photoId, storagePath) {
 // Dynamic Tags
 // ===========================
 function updateTags(filter = 'all') {
-  const locations = [...new Set(photos.map(p => p.location))];
+  const locations = [...new Set(photos.map(p => p.location).filter(Boolean))];
 
   tagsContainer.innerHTML = `
     <button class="tag ${filter === 'all' ? 'tag--active' : ''}" data-filter="all">전체</button>
@@ -231,7 +300,7 @@ function renderCards(filter = 'all') {
             <p class="card__back-location">📍 ${photo.location}</p>
             <div class="card__back-divider"></div>
             ${blogBtnHtml}
-            <button class="card__back-delete" data-id="${photo.id}" data-path="${photo.storagePath || ''}" aria-label="삭제" title="삭제">🗑</button>
+            <button class="card__back-delete" data-id="${photo.id}" aria-label="삭제" title="삭제">🗑</button>
           </div>
         </div>
       </div>
@@ -259,8 +328,7 @@ function renderCards(filter = 'all') {
       e.stopPropagation();
       e.preventDefault();
       const id = btn.dataset.id;
-      const path = btn.dataset.path;
-      showDeleteConfirm(id, path);
+      showDeleteConfirm(id);
     });
   });
 }
@@ -398,13 +466,12 @@ uploadForm.addEventListener('submit', async (e) => {
 
   try {
     for (const fileObj of selectedFiles) {
-      const { downloadURL, filePath } = await uploadImageToStorage(fileObj.file);
+      const imageUrl = await uploadImageToCloudinary(fileObj.file);
 
       await addPhotoToFirestore({
         date,
         location,
-        imageUrl: downloadURL,
-        storagePath: filePath,
+        imageUrl,
         blogUrl,
         isDefault: false
       });
@@ -427,11 +494,9 @@ const deleteConfirmModal = document.getElementById('delete-confirm-modal');
 const deleteCancelBtn = document.getElementById('delete-cancel');
 const deleteOkBtn = document.getElementById('delete-ok');
 let pendingDeleteId = null;
-let pendingDeletePath = null;
 
-function showDeleteConfirm(id, storagePath) {
+function showDeleteConfirm(id) {
   pendingDeleteId = id;
-  pendingDeletePath = storagePath || null;
   suppressOutsideClick = true;
   deleteConfirmModal.classList.add('delete-confirm-overlay--active');
 }
@@ -439,7 +504,6 @@ function showDeleteConfirm(id, storagePath) {
 function hideDeleteConfirm() {
   deleteConfirmModal.classList.remove('delete-confirm-overlay--active');
   pendingDeleteId = null;
-  pendingDeletePath = null;
   setTimeout(() => { suppressOutsideClick = false; }, 100);
 }
 
@@ -454,7 +518,7 @@ deleteOkBtn.addEventListener('click', async (e) => {
     deleteOkBtn.textContent = '삭제 중...';
     deleteOkBtn.disabled = true;
 
-    await deletePhotoFromFirebase(pendingDeleteId, pendingDeletePath);
+    await deletePhotoFromFirebase(pendingDeleteId);
     await loadPhotosFromFirestore();
 
     deleteOkBtn.textContent = '삭제';
@@ -505,15 +569,18 @@ viewGridBtn.addEventListener('click', () => setViewMode('grid'));
 // Init
 // ===========================
 document.addEventListener('DOMContentLoaded', () => {
-  // 1. Render default photos IMMEDIATELY (no waiting)
-  photos = [...DEFAULT_PHOTOS];
-  updateTags(activeFilter);
-  renderCards(activeFilter);
+  // 1. Show loading state (do NOT render default photos to avoid flash)
+  gallery.innerHTML = `
+    <div class="gallery__empty">
+      <p class="gallery__empty-icon">⏳</p>
+      <p class="gallery__empty-text">사진을 불러오는 중...</p>
+    </div>
+  `;
 
   // 2. Restore view mode
   const savedMode = localStorage.getItem(VIEW_MODE_KEY) || 'list';
   setViewMode(savedMode);
 
-  // 3. Load Firestore data in background and replace when ready
+  // 3. Load Firestore data
   loadPhotosFromFirestore();
 });
