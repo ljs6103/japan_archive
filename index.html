@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="일본 한달살기 사진 아카이브 — 도쿄, 교토, 후지산 등 일본 곳곳의 기록">
+  <title>日本 한달살기 아카이브</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=Zen+Old+Mincho:wght@400;700&display=swap"
+    rel="stylesheet">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header__inner">
+      <div class="header__logo">
+        <span class="header__icon">🇯🇵</span>
+        <h1 class="header__title">한달살기 아카이브</h1>
+        <button class="add-btn" id="add-btn" aria-label="사진 추가">
+          <span class="add-btn__icon">+</span>
+        </button>
+      </div>
+      <p class="header__subtitle">일본 곳곳의 한 달, 사진으로 남기다</p>
+    </div>
+  </header>
+
+  <!-- Filter Tags -->
+  <nav class="tags" id="tags">
+    <button class="tag tag--active" data-filter="all">전체</button>
+  </nav>
+
+  <!-- View Mode Toggle (mobile only) -->
+  <div class="view-toggle" id="view-toggle">
+    <button class="view-toggle__btn view-toggle__btn--active" id="view-list" aria-label="리스트로 보기" title="리스트로 보기">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="2" y="3" width="16" height="4" rx="1.5" fill="currentColor" />
+        <rect x="2" y="9" width="16" height="4" rx="1.5" fill="currentColor" opacity="0.6" />
+        <rect x="2" y="15" width="16" height="2" rx="1" fill="currentColor" opacity="0.3" />
+      </svg>
+    </button>
+    <button class="view-toggle__btn" id="view-grid" aria-label="바둑판식으로 보기" title="바둑판식으로 보기">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="2" y="2" width="7" height="7" rx="1.5" fill="currentColor" />
+        <rect x="11" y="2" width="7" height="7" rx="1.5" fill="currentColor" />
+        <rect x="2" y="11" width="7" height="7" rx="1.5" fill="currentColor" />
+        <rect x="11" y="11" width="7" height="7" rx="1.5" fill="currentColor" />
+      </svg>
+    </button>
+  </div>
+
+  <!-- Gallery Grid -->
+  <main class="gallery" id="gallery"></main>
+
+  <!-- Upload Modal -->
+  <div class="modal-overlay" id="upload-modal">
+    <div class="modal">
+      <div class="modal__header">
+        <h2 class="modal__title">📸 사진 추가하기</h2>
+        <button class="modal__close" id="modal-close" aria-label="닫기">&times;</button>
+      </div>
+
+      <form class="upload-form" id="upload-form">
+        <!-- File Drop Zone -->
+        <div class="upload-form__dropzone" id="dropzone">
+          <div class="upload-form__dropzone-content">
+            <span class="upload-form__dropzone-icon">🗾</span>
+            <p class="upload-form__dropzone-text">사진을 드래그하거나 클릭해서 선택</p>
+            <p class="upload-form__dropzone-hint">여러 장을 한 번에 올릴 수 있어요</p>
+          </div>
+          <input type="file" id="file-input" accept="image/*" multiple hidden>
+        </div>
+
+        <!-- Preview -->
+        <div class="upload-form__preview" id="file-preview" hidden></div>
+
+        <!-- Fields -->
+        <div class="upload-form__field">
+          <label class="upload-form__label" for="input-date">날짜</label>
+          <input class="upload-form__input" type="date" id="input-date" required>
+        </div>
+
+        <div class="upload-form__field">
+          <label class="upload-form__label" for="input-location">장소</label>
+          <div class="upload-form__row">
+            <select class="upload-form__select" id="input-location" required>
+              <option value="">지역 선택</option>
+              <option value="도쿄">도쿄</option>
+              <option value="교토">교토</option>
+              <option value="오사카">오사카</option>
+              <option value="후지산">후지산</option>
+              <option value="나라">나라</option>
+              <option value="홋카이도">홋카이도</option>
+              <option value="오키나와">오키나와</option>
+              <option value="기타">기타</option>
+            </select>
+            <input class="upload-form__input" type="text" id="input-location-detail" placeholder="상세 장소 (예: 신주쿠 골든가이)">
+          </div>
+        </div>
+
+        <div class="upload-form__field">
+          <label class="upload-form__label" for="input-blog">블로그 포스팅 링크 <span
+              class="upload-form__optional">(선택)</span></label>
+          <input class="upload-form__input" type="url" id="input-blog" placeholder="https://blog.example.com/...">
+        </div>
+
+        <button class="upload-form__submit" type="submit">추가하기</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Delete Confirm Modal -->
+  <div class="delete-confirm-overlay" id="delete-confirm-modal">
+    <div class="delete-confirm">
+      <p class="delete-confirm__icon">🗑</p>
+      <p class="delete-confirm__text">이 사진을 삭제할까요?</p>
+      <div class="delete-confirm__actions">
+        <button class="delete-confirm__btn delete-confirm__btn--cancel" id="delete-cancel">취소</button>
+        <button class="delete-confirm__btn delete-confirm__btn--ok" id="delete-ok">삭제</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <p>© 2026 한달살기 아카이브 · Made with ☁️</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+
+</html>
