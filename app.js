@@ -31,33 +31,15 @@ const DEFAULT_PHOTOS = [
   }
 ];
 
-const STORAGE_KEY = 'handalsal-archive-photos';
-
 // ===========================
-// Data Management
+// State
 // ===========================
-function loadPhotos() {
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (saved) {
-    try {
-      const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
-      }
-    } catch (e) {
-      console.warn('LocalStorage 데이터 파싱 실패, 기본 데이터 사용');
-    }
-  }
-  // First time: save defaults
-  savePhotos(DEFAULT_PHOTOS);
-  return [...DEFAULT_PHOTOS];
-}
+let photos = [];
+let activeFilter = 'all';
+let suppressOutsideClick = false;
+let selectedFiles = []; // { file, dataUrl, name }
 
-function savePhotos(data) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-}
-
-let photos = loadPhotos();
+const VIEW_MODE_KEY = 'handalsal-view-mode';
 
 // ===========================
 // DOM Elements
@@ -71,18 +53,13 @@ const uploadForm = document.getElementById('upload-form');
 const dropzone = document.getElementById('dropzone');
 const fileInput = document.getElementById('file-input');
 const filePreview = document.getElementById('file-preview');
-const viewToggle = document.getElementById('view-toggle');
 const viewListBtn = document.getElementById('view-list');
 const viewGridBtn = document.getElementById('view-grid');
-
-const VIEW_MODE_KEY = 'handalsal-view-mode';
-let selectedFiles = []; // { file, dataUrl }
 
 // ===========================
 // Date Formatting
 // ===========================
 function formatDate(dateStr) {
-  // Convert YYYY-MM-DD to YYYY.MM.DD
   return dateStr.replace(/-/g, '.');
 }
 
@@ -93,15 +70,114 @@ function formatDateJP(dateStr) {
 }
 
 // ===========================
+// Firebase: Seed Default Data
+// ===========================
+let hasSeeded = false;
+
+function seedDefaultPhotos() {
+  if (hasSeeded) return;
+  hasSeeded = true;
+  DEFAULT_PHOTOS.forEach(photo => {
+    db.collection('photos').add({
+      date: photo.date,
+      location: photo.location,
+      locationDetail: photo.locationDetail,
+      image: photo.image,
+      blogUrl: photo.blogUrl,
+      isDefault: true,
+      createdAt: new Date().toISOString()
+    }).catch(e => console.error('시딩 실패:', e));
+  });
+}
+
+// ===========================
+// Firebase: Load Photos
+// ===========================
+async function loadPhotosFromFirestore() {
+  try {
+    const snapshot = await db.collection('photos').get();
+
+    if (snapshot.empty) {
+      seedDefaultPhotos();
+      setTimeout(() => loadPhotosFromFirestore(), 3000);
+      return;
+    }
+
+    photos = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    // Sort by createdAt descending
+    photos.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+
+    updateTags(activeFilter);
+    renderCards(activeFilter);
+  } catch (error) {
+    console.error('❌ Firestore 로딩 에러:', error);
+    // Fallback to defaults
+    photos = [...DEFAULT_PHOTOS];
+    updateTags(activeFilter);
+    renderCards(activeFilter);
+  }
+}
+
+// ===========================
+// Firebase: Upload Image to Storage
+// ===========================
+async function uploadImageToStorage(file) {
+  const timestamp = Date.now();
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const filePath = `photos/${timestamp}_${safeName}`;
+  const storageRef = storage.ref(filePath);
+
+  await storageRef.put(file);
+  const downloadURL = await storageRef.getDownloadURL();
+  return { downloadURL, filePath };
+}
+
+// ===========================
+// Firebase: Add Photo
+// ===========================
+async function addPhotoToFirestore(photoData) {
+  return await db.collection('photos').add({
+    ...photoData,
+    createdAt: new Date().toISOString()
+  });
+}
+
+// ===========================
+// Firebase: Delete Photo
+// ===========================
+async function deletePhotoFromFirebase(photoId, storagePath) {
+  try {
+    // Delete Firestore document
+    await db.collection('photos').doc(photoId).delete();
+
+    // Delete from Storage (only for uploaded images, not defaults)
+    if (storagePath && !storagePath.startsWith('images/')) {
+      try {
+        await storage.ref(storagePath).delete();
+      } catch (storageErr) {
+        console.warn('Storage 파일 삭제 실패:', storageErr);
+      }
+    }
+  } catch (e) {
+    console.error('삭제 실패:', e);
+    alert('삭제에 실패했습니다. 다시 시도해 주세요.');
+  }
+}
+
+// ===========================
 // Dynamic Tags
 // ===========================
-function updateTags(activeFilter = 'all') {
+function updateTags(filter = 'all') {
   const locations = [...new Set(photos.map(p => p.location))];
 
   tagsContainer.innerHTML = `
-    <button class="tag ${activeFilter === 'all' ? 'tag--active' : ''}" data-filter="all">전체</button>
+    <button class="tag ${filter === 'all' ? 'tag--active' : ''}" data-filter="all">전체</button>
     ${locations.map(loc => `
-      <button class="tag ${activeFilter === loc ? 'tag--active' : ''}" data-filter="${loc}">${loc}</button>
+      <button class="tag ${filter === loc ? 'tag--active' : ''}" data-filter="${loc}">${loc}</button>
     `).join('')}
   `;
 }
@@ -109,9 +185,6 @@ function updateTags(activeFilter = 'all') {
 // ===========================
 // Render Cards
 // ===========================
-let activeFilter = 'all';
-let suppressOutsideClick = false;
-
 function renderCards(filter = 'all') {
   activeFilter = filter;
   const filtered = filter === 'all'
@@ -143,14 +216,12 @@ function renderCards(filter = 'all') {
       ? `${photo.location} · ${photo.locationDetail}`
       : photo.location;
 
-    // Conditional blog button
     const blogBtnHtml = photo.blogUrl
       ? `<a class="card__back-blog" href="${photo.blogUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">📖 블로그 일기 보기</a>`
       : '';
 
     card.innerHTML = `
       <div class="card__inner">
-        <!-- Front (Photo Only) -->
         <div class="card__front">
           <div class="card__img-wrapper">
             <img class="card__img" src="${photo.image}" alt="${displayDate} ${photo.location}" loading="lazy">
@@ -160,8 +231,6 @@ function renderCards(filter = 'all') {
             <span class="card__flip-hint">↻ 뒤집기</span>
           </div>
         </div>
-
-        <!-- Back (Japanese Diary) -->
         <div class="card__back">
           <div class="card__back-content">
             <div class="card__back-stamp">
@@ -171,15 +240,13 @@ function renderCards(filter = 'all') {
             <p class="card__back-location">📍 ${locationFull}</p>
             <div class="card__back-divider"></div>
             ${blogBtnHtml}
-            <button class="card__back-delete" data-id="${photo.id}" aria-label="삭제" title="삭제">🗑</button>
+            <button class="card__back-delete" data-id="${photo.id}" data-path="${photo.storagePath || ''}" aria-label="삭제" title="삭제">🗑</button>
           </div>
         </div>
       </div>
     `;
 
-    // Flip on click
     card.addEventListener('click', (e) => {
-      // Don't flip if clicking delete or blog button
       if (e.target.closest('.card__back-delete')) return;
       if (e.target.closest('.card__back-blog')) return;
       card.classList.toggle('card--flipped');
@@ -201,7 +268,8 @@ function renderCards(filter = 'all') {
       e.stopPropagation();
       e.preventDefault();
       const id = btn.dataset.id;
-      showDeleteConfirm(id);
+      const path = btn.dataset.path;
+      showDeleteConfirm(id, path);
     });
   });
 }
@@ -225,7 +293,6 @@ tagsContainer.addEventListener('click', (e) => {
 function openModal() {
   uploadModal.classList.add('modal-overlay--active');
   document.body.style.overflow = 'hidden';
-  // Set default date to today
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('input-date').value = today;
 }
@@ -241,6 +308,9 @@ function resetForm() {
   selectedFiles = [];
   filePreview.innerHTML = '';
   filePreview.hidden = true;
+  const submitBtn = uploadForm.querySelector('.upload-form__submit');
+  submitBtn.disabled = false;
+  submitBtn.textContent = '추가하기';
 }
 
 addBtn.addEventListener('click', openModal);
@@ -280,10 +350,8 @@ fileInput.addEventListener('change', () => {
 
 function handleFiles(fileList) {
   const files = Array.from(fileList).filter(f => f.type.startsWith('image/'));
-
   if (files.length === 0) return;
 
-  // Read each file as base64
   files.forEach(file => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -307,7 +375,6 @@ function renderPreview() {
     </div>
   `).join('');
 
-  // Remove handlers
   filePreview.querySelectorAll('.upload-form__preview-remove').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -319,9 +386,9 @@ function renderPreview() {
 }
 
 // ===========================
-// Form Submission (Batch Upload)
+// Form Submission (Firebase Upload)
 // ===========================
-uploadForm.addEventListener('submit', (e) => {
+uploadForm.addEventListener('submit', async (e) => {
   e.preventDefault();
 
   if (selectedFiles.length === 0) {
@@ -329,28 +396,38 @@ uploadForm.addEventListener('submit', (e) => {
     return;
   }
 
+  const submitBtn = uploadForm.querySelector('.upload-form__submit');
+  submitBtn.disabled = true;
+  submitBtn.textContent = '업로드 중...';
+
   const date = document.getElementById('input-date').value;
   const location = document.getElementById('input-location').value;
   const locationDetail = document.getElementById('input-location-detail').value.trim();
   const blogUrl = document.getElementById('input-blog').value.trim();
 
-  // Create cards for each file (batch)
-  const newPhotos = selectedFiles.map((f, idx) => ({
-    id: `user-${Date.now()}-${idx}`,
-    date: date,
-    location: location,
-    locationDetail: locationDetail,
-    image: f.dataUrl, // base64
-    blogUrl: blogUrl,
-    isDefault: false
-  }));
+  try {
+    for (const fileObj of selectedFiles) {
+      const { downloadURL, filePath } = await uploadImageToStorage(fileObj.file);
 
-  photos = [...newPhotos, ...photos]; // New photos go to front
-  savePhotos(photos);
+      await addPhotoToFirestore({
+        date,
+        location,
+        locationDetail,
+        image: downloadURL,
+        storagePath: filePath,
+        blogUrl,
+        isDefault: false
+      });
+    }
 
-  closeModal();
-  updateTags(activeFilter);
-  renderCards(activeFilter);
+    closeModal();
+    await loadPhotosFromFirestore();
+  } catch (err) {
+    console.error('업로드 실패:', err);
+    alert('업로드에 실패했습니다. 다시 시도해 주세요.');
+    submitBtn.disabled = false;
+    submitBtn.textContent = '추가하기';
+  }
 });
 
 // ===========================
@@ -360,9 +437,11 @@ const deleteConfirmModal = document.getElementById('delete-confirm-modal');
 const deleteCancelBtn = document.getElementById('delete-cancel');
 const deleteOkBtn = document.getElementById('delete-ok');
 let pendingDeleteId = null;
+let pendingDeletePath = null;
 
-function showDeleteConfirm(id) {
+function showDeleteConfirm(id, storagePath) {
   pendingDeleteId = id;
+  pendingDeletePath = storagePath || null;
   suppressOutsideClick = true;
   deleteConfirmModal.classList.add('delete-confirm-overlay--active');
 }
@@ -370,7 +449,7 @@ function showDeleteConfirm(id) {
 function hideDeleteConfirm() {
   deleteConfirmModal.classList.remove('delete-confirm-overlay--active');
   pendingDeleteId = null;
-  // Delay re-enabling outside click so the click from closing doesn't unflip
+  pendingDeletePath = null;
   setTimeout(() => { suppressOutsideClick = false; }, 100);
 }
 
@@ -379,21 +458,17 @@ deleteCancelBtn.addEventListener('click', (e) => {
   hideDeleteConfirm();
 });
 
-deleteOkBtn.addEventListener('click', (e) => {
+deleteOkBtn.addEventListener('click', async (e) => {
   e.stopPropagation();
   if (pendingDeleteId) {
-    photos = photos.filter(p => p.id !== pendingDeleteId);
-    savePhotos(photos);
-    updateTags(activeFilter);
-    // If current filter has no photos, reset to 'all'
-    const remaining = activeFilter === 'all'
-      ? photos
-      : photos.filter(p => p.location === activeFilter);
-    if (remaining.length === 0 && activeFilter !== 'all') {
-      activeFilter = 'all';
-      updateTags('all');
-    }
-    renderCards(activeFilter);
+    deleteOkBtn.textContent = '삭제 중...';
+    deleteOkBtn.disabled = true;
+
+    await deletePhotoFromFirebase(pendingDeleteId, pendingDeletePath);
+    await loadPhotosFromFirestore();
+
+    deleteOkBtn.textContent = '삭제';
+    deleteOkBtn.disabled = false;
   }
   hideDeleteConfirm();
 });
@@ -440,10 +515,18 @@ viewGridBtn.addEventListener('click', () => setViewMode('grid'));
 // Init
 // ===========================
 document.addEventListener('DOMContentLoaded', () => {
-  updateTags();
-  renderCards();
+  // Show loading state
+  gallery.innerHTML = `
+    <div class="gallery__empty">
+      <p class="gallery__empty-icon">⏳</p>
+      <p class="gallery__empty-text">사진을 불러오는 중...</p>
+    </div>
+  `;
 
-  // Restore saved view mode (default: list)
+  // Load data from Firestore
+  loadPhotosFromFirestore();
+
+  // Restore view mode
   const savedMode = localStorage.getItem(VIEW_MODE_KEY) || 'list';
   setViewMode(savedMode);
 });
