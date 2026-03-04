@@ -31,10 +31,21 @@
     </div>
   </header>
 
-  <!-- Filter Tags -->
-  <nav class="tags" id="tags">
-    <button class="tag tag--active" data-filter="all">전체</button>
-  </nav>
+  <!-- Filter Tags & Sort -->
+  <div class="filter-bar">
+    <nav class="tags" id="tags">
+      <button class="tag tag--active" data-filter="all">전체</button>
+    </nav>
+    <button class="sort-toggle" id="sort-toggle" aria-label="정렬 순서 변경" title="오래된순">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <path d="m3 16 4 4 4-4" />
+        <path d="M7 20V4" />
+        <path d="m21 8-4-4-4 4" />
+        <path d="M17 4v16" />
+      </svg>
+    </button>
+  </div>
 
   <!-- View Mode Toggle (mobile only) -->
   <div class="view-toggle" id="view-toggle">

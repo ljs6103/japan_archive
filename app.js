@@ -39,6 +39,7 @@ const DEFAULT_PHOTOS = [
 // ===========================
 let photos = [];
 let activeFilter = 'all';
+let currentSort = 'oldest'; // Default sort
 let suppressOutsideClick = false;
 let selectedFiles = []; // { file, dataUrl, name }
 
@@ -118,8 +119,8 @@ async function loadPhotosFromFirestore() {
     // 불완전한 문서 필터링 (location 또는 imageUrl이 없는 문서 제외)
     photos = photos.filter(p => p.location && p.imageUrl);
 
-    // 클라이언트 사이드 정렬 (최신순)
-    photos.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    // 클라이언트 사이드 정렬 적용
+    applySort();
 
     updateTags(activeFilter);
     renderCards(activeFilter);
@@ -370,6 +371,40 @@ function renderCards(filter = 'all') {
       const id = btn.dataset.id;
       showDeleteConfirm(id);
     });
+  });
+}
+
+// ===========================
+// Sorting Logic
+// ===========================
+function applySort() {
+  if (currentSort === 'newest') {
+    // Newest date first
+    photos.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  } else {
+    // Oldest date first
+    photos.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  }
+}
+
+const sortToggle = document.getElementById('sort-toggle');
+if (sortToggle) {
+  sortToggle.addEventListener('click', () => {
+    // Toggle sort order
+    currentSort = currentSort === 'oldest' ? 'newest' : 'oldest';
+
+    // Update UI state
+    if (currentSort === 'newest') {
+      sortToggle.classList.add('sort-toggle--newest');
+      sortToggle.title = '최신순';
+    } else {
+      sortToggle.classList.remove('sort-toggle--newest');
+      sortToggle.title = '오래된순';
+    }
+
+    // Re-apply sort and render
+    applySort();
+    renderCards(activeFilter);
   });
 }
 

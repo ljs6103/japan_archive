@@ -152,22 +152,60 @@ body {
 }
 
 /* ===========================
-   Filter Tags
+   Filter & Sort Bar
    =========================== */
-.tags {
+.filter-bar {
   max-width: 1200px;
   margin: 0 auto;
   padding: 16px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.tags {
   display: flex;
   gap: 8px;
   overflow-x: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  flex-wrap: wrap;
+  flex: 1;
 }
 
 .tags::-webkit-scrollbar {
   display: none;
+}
+
+.sort-toggle {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--white);
+  border: 1.5px solid var(--sky-200);
+  border-radius: 50%;
+  color: var(--text-sub);
+  cursor: pointer;
+  transition: var(--transition);
+  flex-shrink: 0;
+}
+
+.sort-toggle:hover {
+  background: var(--sky-50);
+  border-color: var(--sky-300);
+  color: var(--sky-400);
+  transform: scale(1.05);
+}
+
+.sort-toggle svg {
+  transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.sort-toggle--newest svg {
+  transform: rotate(180deg);
 }
 
 .tag {
