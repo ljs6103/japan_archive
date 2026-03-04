@@ -3,13 +3,13 @@
    =========================== */
 :root {
   --white: #FFFFFF;
-  --bg: #F8FBFF;
-  --sky-50: #F0F8FF;
-  --sky-100: #E0F0FF;
-  --sky-200: #BAE0FB;
-  --sky-300: #87CEEB;
-  --sky-400: #6BBDDF;
-  --sky-500: #5BAADB;
+  --bg: #F5FAF6;
+  --sky-50: #EFF6F0;
+  --sky-100: #D9EBD9;
+  --sky-200: #A8D5A8;
+  --sky-300: #4C9559;
+  --sky-400: #3E8249;
+  --sky-500: #336E3C;
   --text: #1A1A2E;
   --text-sub: #6B7280;
   --text-light: #9CA3AF;
@@ -17,12 +17,12 @@
   --kraft-dark: #E8D5B8;
   --kraft-line: #D4C0A0;
   --stamp-red: #C84B31;
-  --tape-blue: rgba(135, 206, 235, 0.45);
+  --tape-blue: rgba(76, 149, 89, 0.35);
   --tape-pink: rgba(255, 182, 193, 0.45);
   --radius: 16px;
   --radius-sm: 8px;
-  --shadow-card: 0 2px 16px rgba(135, 206, 235, 0.12);
-  --shadow-card-hover: 0 8px 32px rgba(135, 206, 235, 0.22);
+  --shadow-card: 0 2px 16px rgba(76, 149, 89, 0.10);
+  --shadow-card-hover: 0 8px 32px rgba(76, 149, 89, 0.20);
   --transition: 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   --font: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-jp: 'Zen Old Mincho', 'Noto Sans KR', serif;
