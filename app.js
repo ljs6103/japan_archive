@@ -299,7 +299,7 @@ function renderCards(filter = 'all') {
         <div class="card__back">
           <div class="card__back-content">
             <div class="card__back-stamp">
-              <span class="card__back-stamp-text">${photo.location}</span>
+              <span class="card__back-stamp-text">${getBaseLocation(photo.location)}</span>
             </div>
             <p class="card__back-date">${jpDate}</p>
             <p class="card__back-location">📍 ${photo.location}</p>
