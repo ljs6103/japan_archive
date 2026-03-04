@@ -253,6 +253,26 @@ function updateTags(filter = 'all') {
 // ===========================
 // Render Cards
 // ===========================
+// Scroll Reveal Animation (Intersection Observer)
+// ===========================
+const revealObserver = new IntersectionObserver((entries) => {
+  let delayIndex = 0;
+  entries.forEach((entry) => {
+    if (entry.isIntersecting) {
+      const card = entry.target;
+      // Apply stagger delay only if the card is not already visible
+      if (!card.classList.contains('visible')) {
+        card.style.setProperty('--stagger', `${delayIndex * 0.1}s`);
+        delayIndex++;
+        card.classList.add('visible');
+        revealObserver.unobserve(card); // Stop observing once visible
+      }
+    }
+  });
+}, {
+  threshold: 0.2 // Trigger when 20% of the card is visible
+});
+
 function renderCards(filter = 'all') {
   activeFilter = filter;
   const filtered = filter === 'all'
@@ -329,6 +349,7 @@ function renderCards(filter = 'all') {
     });
 
     gallery.appendChild(card);
+    revealObserver.observe(card); // Start observing the card
   });
 
   // Edit button handlers
