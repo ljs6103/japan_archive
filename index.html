@@ -26,9 +26,6 @@
       <div class="header__logo">
         <span class="header__icon">🇯🇵</span>
         <h1 class="header__title">한달살기 아카이브</h1>
-        <button class="add-btn" id="add-btn" aria-label="사진 추가">
-          <span class="add-btn__icon">+</span>
-        </button>
       </div>
       <p class="header__subtitle">일본 곳곳의 한 달, 사진으로 남기다</p>
     </div>
@@ -123,7 +120,42 @@
     </div>
   </div>
 
-  <!-- Footer -->
+  <!-- Floating Add Button -->
+  <button class="fab" id="add-btn" aria-label="사진 추가">
+    <span class="fab__icon">+</span>
+  </button>
+
+  <!-- Edit Modal -->
+  <div class="modal-overlay" id="edit-modal">
+    <div class="modal">
+      <div class="modal__header">
+        <h2 class="modal__title">✏️ 정보 수정</h2>
+        <button class="modal__close" id="edit-modal-close" aria-label="닫기">&times;</button>
+      </div>
+      <form class="upload-form" id="edit-form">
+        <div class="upload-form__field">
+          <label class="upload-form__label" for="edit-date">날짜</label>
+          <input class="upload-form__input" type="date" id="edit-date" required>
+        </div>
+        <div class="upload-form__field">
+          <label class="upload-form__label" for="edit-location">장소</label>
+          <select class="upload-form__select" id="edit-location" required>
+            <option value="">지역 선택</option>
+            <option value="도쿄">도쿄</option>
+            <option value="히로시마">히로시마</option>
+            <option value="기타">기타</option>
+          </select>
+          <input class="upload-form__input" type="text" id="edit-location-detail" placeholder="상세 장소 (예: 평화기념공원)">
+        </div>
+        <div class="upload-form__field">
+          <label class="upload-form__label" for="edit-blog">블로그 링크 <span
+              class="upload-form__optional">(선택)</span></label>
+          <input class="upload-form__input" type="url" id="edit-blog" placeholder="https://blog.example.com/...">
+        </div>
+        <button class="upload-form__submit" type="submit">수정 완료</button>
+      </form>
+    </div>
+  </div> <!-- Footer -->
   <footer class="footer">
     <p>© 2026 한달살기 아카이브 · Made with ☁️</p>
   </footer>

@@ -114,34 +114,39 @@ body {
 }
 
 /* ===========================
-   Add Button [+]
+   Floating Action Button (FAB)
    =========================== */
-.add-btn {
+.fab {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  z-index: 500;
+  width: 56px;
+  height: 56px;
+  border: none;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--sky-300), var(--sky-400));
+  color: var(--white);
+  cursor: pointer;
+  transition: var(--transition);
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  border: 2px solid var(--sky-300);
-  border-radius: 10px;
-  background: var(--white);
-  color: var(--sky-400);
-  cursor: pointer;
-  transition: var(--transition);
-  margin-left: 6px;
-  flex-shrink: 0;
+  box-shadow: 0 4px 20px rgba(76, 149, 89, 0.12);
 }
 
-.add-btn:hover {
-  background: linear-gradient(135deg, var(--sky-300), var(--sky-400));
-  border-color: transparent;
-  color: var(--white);
-  transform: scale(1.08);
-  box-shadow: 0 4px 16px rgba(135, 206, 235, 0.35);
+.fab:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 28px rgba(76, 149, 89, 0.25);
+  background: linear-gradient(135deg, var(--sky-400), var(--sky-500));
 }
 
-.add-btn__icon {
-  font-size: 1.25rem;
+.fab:active {
+  transform: scale(0.95);
+}
+
+.fab__icon {
+  font-size: 1.6rem;
   font-weight: 300;
   line-height: 1;
 }
@@ -571,11 +576,18 @@ body {
   box-shadow: 0 3px 12px rgba(135, 206, 235, 0.3);
 }
 
-/* Delete button on back */
-.card__back-delete {
+/* Action buttons group on back */
+.card__back-actions {
   position: absolute;
   bottom: 16px;
   right: 16px;
+  display: flex;
+  gap: 6px;
+  z-index: 3;
+}
+
+.card__back-edit,
+.card__back-delete {
   width: 32px;
   height: 32px;
   border: none;
@@ -588,7 +600,12 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 3;
+}
+
+.card__back-edit:hover {
+  background: rgba(76, 149, 89, 0.15);
+  color: var(--sky-300);
+  transform: scale(1.1);
 }
 
 .card__back-delete:hover {

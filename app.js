@@ -234,8 +234,13 @@ async function deletePhotoFromFirebase(photoId) {
 // ===========================
 // Dynamic Tags
 // ===========================
+// Helper: extract base location (before ' · ')
+function getBaseLocation(loc) {
+  return (loc || '').split(' · ')[0];
+}
+
 function updateTags(filter = 'all') {
-  const locations = [...new Set(photos.map(p => p.location).filter(Boolean))];
+  const locations = [...new Set(photos.map(p => getBaseLocation(p.location)).filter(Boolean))];
 
   tagsContainer.innerHTML = `
     <button class="tag ${filter === 'all' ? 'tag--active' : ''}" data-filter="all">전체</button>
@@ -252,7 +257,7 @@ function renderCards(filter = 'all') {
   activeFilter = filter;
   const filtered = filter === 'all'
     ? photos
-    : photos.filter(p => p.location === filter);
+    : photos.filter(p => getBaseLocation(p.location) === filter);
 
   gallery.innerHTML = '';
 
@@ -300,7 +305,10 @@ function renderCards(filter = 'all') {
             <p class="card__back-location">📍 ${photo.location}</p>
             <div class="card__back-divider"></div>
             ${blogBtnHtml}
-            <button class="card__back-delete" data-id="${photo.id}" aria-label="삭제" title="삭제">🗑</button>
+          </div>
+          <div class="card__back-actions">
+            <button class="card__back-edit" data-id="${photo.id}" aria-label="수정" title="수정">✎</button>
+            <button class="card__back-delete" data-id="${photo.id}" aria-label="삭제" title="삭제">✕</button>
           </div>
         </div>
       </div>
@@ -308,6 +316,7 @@ function renderCards(filter = 'all') {
 
     card.addEventListener('click', (e) => {
       if (e.target.closest('.card__back-delete')) return;
+      if (e.target.closest('.card__back-edit')) return;
       if (e.target.closest('.card__back-blog')) return;
       card.classList.toggle('card--flipped');
     });
@@ -320,6 +329,16 @@ function renderCards(filter = 'all') {
     });
 
     gallery.appendChild(card);
+  });
+
+  // Edit button handlers
+  gallery.querySelectorAll('.card__back-edit').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      const id = btn.dataset.id;
+      openEditModal(id);
+    });
   });
 
   // Delete button handlers
@@ -460,8 +479,9 @@ uploadForm.addEventListener('submit', async (e) => {
   submitBtn.textContent = '업로드 중...';
 
   const date = document.getElementById('input-date').value;
-  const location = document.getElementById('input-location').value;
-  // locationDetail is no longer used in the schema
+  const locationBase = document.getElementById('input-location').value;
+  const locationDetail = document.getElementById('input-location-detail').value.trim();
+  const location = locationDetail ? `${locationBase} · ${locationDetail}` : locationBase;
   const blogUrl = document.getElementById('input-blog').value.trim();
 
   try {
@@ -484,6 +504,73 @@ uploadForm.addEventListener('submit', async (e) => {
     alert('업로드에 실패했습니다. 다시 시도해 주세요.');
     submitBtn.disabled = false;
     submitBtn.textContent = '추가하기';
+  }
+});
+
+// ===========================
+// Edit Modal
+// ===========================
+const editModal = document.getElementById('edit-modal');
+const editModalClose = document.getElementById('edit-modal-close');
+const editForm = document.getElementById('edit-form');
+let editingPhotoId = null;
+
+function openEditModal(photoId) {
+  const photo = photos.find(p => p.id === photoId);
+  if (!photo) return;
+
+  editingPhotoId = photoId;
+  document.getElementById('edit-date').value = photo.date || '';
+
+  // Parse "히로시마 · 평화기념공원" → select: 히로시마, detail: 평화기념공원
+  const locParts = (photo.location || '').split(' · ');
+  document.getElementById('edit-location').value = locParts[0] || '';
+  document.getElementById('edit-location-detail').value = locParts[1] || '';
+
+  document.getElementById('edit-blog').value = photo.blogUrl || '';
+
+  editModal.classList.add('modal-overlay--active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeEditModal() {
+  editModal.classList.remove('modal-overlay--active');
+  document.body.style.overflow = '';
+  editingPhotoId = null;
+}
+
+editModalClose.addEventListener('click', closeEditModal);
+editModal.addEventListener('click', (e) => {
+  if (e.target === editModal) closeEditModal();
+});
+
+editForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!editingPhotoId) return;
+
+  const submitBtn = editForm.querySelector('.upload-form__submit');
+  submitBtn.disabled = true;
+  submitBtn.textContent = '저장 중...';
+
+  try {
+    const locBase = document.getElementById('edit-location').value;
+    const locDetail = document.getElementById('edit-location-detail').value.trim();
+    const location = locDetail ? `${locBase} · ${locDetail}` : locBase;
+
+    await db.collection('images').doc(editingPhotoId).update({
+      date: document.getElementById('edit-date').value,
+      location,
+      blogUrl: document.getElementById('edit-blog').value.trim()
+    });
+
+    closeEditModal();
+    await loadPhotosFromFirestore();
+  } catch (err) {
+    console.error('수정 실패:', err);
+    alert('수정에 실패했습니다. 다시 시도해 주세요.');
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = '수정 완료';
   }
 });
 
