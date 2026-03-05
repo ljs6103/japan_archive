@@ -981,11 +981,26 @@ body {
    Footer
    =========================== */
 .footer {
-  text-align: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
   padding: 32px 24px;
   font-size: 0.78rem;
   color: var(--text-light);
   font-weight: 300;
+}
+
+.footer__instagram {
+  color: var(--text-light);
+  display: flex;
+  align-items: center;
+  transition: var(--transition);
+}
+
+.footer__instagram:hover {
+  color: var(--sky-400);
+  transform: scale(1.1);
 }
 
 /* ===========================
