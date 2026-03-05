@@ -152,6 +152,14 @@ body {
 }
 
 /* ===========================
+   Read-only Mode (Admin Off)
+   =========================== */
+.readonly-mode .fab,
+.readonly-mode .card__back-actions {
+  display: none !important;
+}
+
+/* ===========================
    Filter & Sort Bar
    =========================== */
 .filter-bar {

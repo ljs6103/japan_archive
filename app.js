@@ -35,6 +35,14 @@ const DEFAULT_PHOTOS = [
 ];
 
 // ===========================
+// Admin Mode (URL Parameter)
+// ===========================
+const isAdmin = new URLSearchParams(window.location.search).get('admin') === 'true';
+if (!isAdmin) {
+  document.body.classList.add('readonly-mode');
+}
+
+// ===========================
 // State
 // ===========================
 let photos = [];
