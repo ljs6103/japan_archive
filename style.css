@@ -411,6 +411,16 @@ body {
   opacity: 0;
 }
 
+@media (max-width: 600px) {
+  .card__overlay {
+    opacity: 1;
+  }
+
+  .card--flipped .card__overlay {
+    opacity: 0;
+  }
+}
+
 .card__overlay-location {
   font-size: 0.75rem;
   font-weight: 500;
