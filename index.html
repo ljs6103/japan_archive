@@ -144,6 +144,16 @@
         <button class="modal__close" id="edit-modal-close" aria-label="닫기">&times;</button>
       </div>
       <form class="upload-form" id="edit-form">
+        <!-- Image Replace Zone -->
+        <div class="edit-image-zone" id="edit-image-zone">
+          <img class="edit-image-zone__preview" id="edit-image-preview" src="" alt="현재 사진">
+          <div class="edit-image-zone__overlay" id="edit-image-overlay">
+            <span class="edit-image-zone__overlay-icon">📷</span>
+            <span class="edit-image-zone__overlay-text">사진 변경</span>
+          </div>
+          <input type="file" id="edit-file-input" accept="image/*" hidden>
+        </div>
+
         <div class="upload-form__field">
           <label class="upload-form__label" for="edit-date">날짜</label>
           <input class="upload-form__input" type="date" id="edit-date" required>

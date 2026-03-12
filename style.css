@@ -806,6 +806,66 @@ body {
   background: var(--stamp-red);
 }
 
+/* ===========================
+   Edit Image Zone (Image Replace)
+   =========================== */
+.edit-image-zone {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 9 / 16;
+  max-height: 280px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  cursor: pointer;
+  background: var(--sky-50);
+  border: 2px solid var(--sky-200);
+  transition: var(--transition);
+}
+
+.edit-image-zone:hover {
+  border-color: var(--sky-400);
+}
+
+.edit-image-zone__preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.edit-image-zone__overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.edit-image-zone:hover .edit-image-zone__overlay {
+  opacity: 1;
+}
+
+.edit-image-zone__overlay-icon {
+  font-size: 1.6rem;
+}
+
+.edit-image-zone__overlay-text {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--white);
+  letter-spacing: 0.02em;
+}
+
+.edit-image-zone--changed {
+  border-color: var(--sky-400);
+  box-shadow: 0 0 0 3px rgba(76, 149, 89, 0.15);
+}
+
 .upload-form__field {
   display: flex;
   flex-direction: column;

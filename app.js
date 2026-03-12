@@ -577,13 +577,23 @@ uploadForm.addEventListener('submit', async (e) => {
 const editModal = document.getElementById('edit-modal');
 const editModalClose = document.getElementById('edit-modal-close');
 const editForm = document.getElementById('edit-form');
+const editImageZone = document.getElementById('edit-image-zone');
+const editImagePreview = document.getElementById('edit-image-preview');
+const editFileInput = document.getElementById('edit-file-input');
 let editingPhotoId = null;
+let editNewFile = null; // new image file selected by user
 
 function openEditModal(photoId) {
   const photo = photos.find(p => p.id === photoId);
   if (!photo) return;
 
   editingPhotoId = photoId;
+  editNewFile = null;
+
+  // Show current image
+  editImagePreview.src = photo.imageUrl || '';
+  editImageZone.classList.remove('edit-image-zone--changed');
+
   document.getElementById('edit-date').value = photo.date || '';
 
   // Parse "히로시마 · 평화기념공원" → select: 히로시마, detail: 평화기념공원
@@ -601,7 +611,25 @@ function closeEditModal() {
   editModal.classList.remove('modal-overlay--active');
   document.body.style.overflow = '';
   editingPhotoId = null;
+  editNewFile = null;
 }
+
+// Click image zone → open file picker
+editImageZone.addEventListener('click', () => editFileInput.click());
+
+// When a new file is selected
+editFileInput.addEventListener('change', () => {
+  const file = editFileInput.files[0];
+  if (!file || !file.type.startsWith('image/')) return;
+
+  editNewFile = file;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    editImagePreview.src = e.target.result;
+    editImageZone.classList.add('edit-image-zone--changed');
+  };
+  reader.readAsDataURL(file);
+});
 
 editModalClose.addEventListener('click', closeEditModal);
 editModal.addEventListener('click', (e) => {
@@ -621,11 +649,20 @@ editForm.addEventListener('submit', async (e) => {
     const locDetail = document.getElementById('edit-location-detail').value.trim();
     const location = locDetail ? `${locBase} · ${locDetail}` : locBase;
 
-    await db.collection('images').doc(editingPhotoId).update({
+    const updateData = {
       date: document.getElementById('edit-date').value,
       location,
       blogUrl: document.getElementById('edit-blog').value.trim()
-    });
+    };
+
+    // If user selected a new image, upload and update imageUrl
+    if (editNewFile) {
+      submitBtn.textContent = '사진 업로드 중...';
+      const newImageUrl = await uploadImageToCloudinary(editNewFile);
+      updateData.imageUrl = newImageUrl;
+    }
+
+    await db.collection('images').doc(editingPhotoId).update(updateData);
 
     closeEditModal();
     await loadPhotosFromFirestore();
